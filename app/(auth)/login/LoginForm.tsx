@@ -23,10 +23,14 @@ export default function LoginForm({ nextParam = "" }: { nextParam?: string }) {
     const s = await authClient.getSession();
     if (!s.error) {
       const role = s.data?.user.role ?? "client";
-      if (nextParam) router.push(nextParam);
-      else if (role === "admin") router.push("/admin/dashboard");
-      else if (role === "technician") router.push("/technician/dashboard");
-      else router.push("/client/dashboard");
+      const target =
+        nextParam ||
+        (role === "admin"
+          ? "/admin/dashboard"
+          : role === "technician"
+          ? "/technician/dashboard"
+          : "/client/dashboard");
+      window.location.assign(target);
     }
   };
 

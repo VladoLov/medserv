@@ -3,8 +3,9 @@ import {
   clients,
   devices,
   technicianProfile,
+  user,
 } from "../../../db/schemas/schema";
-import { and, gte, lte, ilike, eq, sql } from "drizzle-orm";
+import { and, gte, lte, ilike, eq, sql, count } from "drizzle-orm";
 import UpcomingServicesTable from "@/components/admin/UpcomingServicesTable";
 import UpcomingFilterBar from "@/components/admin/UpcomingFilterBar";
 import MetricCard from "../../../components/admin/MetricCard";
@@ -47,9 +48,7 @@ export default async function AdminDashboard({
     .from(devices)
     .where(nowTo30d);
 
-  const technicianCount = await db
-    .select({ value: sql<number>`count(*)::int` })
-    .from(technicianProfile);
+  const technicianCount = await db.$count(user, eq(user.role, "technician"));
 
   // liste za filtere
   const clientList = await db
@@ -96,7 +95,7 @@ export default async function AdminDashboard({
         />
         <MetricCard
           title="Technicians"
-          value={technicianCount[0]?.value ?? 0}
+          value={technicianCount}
           right={<UserCog className="h-5 w-5 text-muted-foreground" />}
         />
       </div>
