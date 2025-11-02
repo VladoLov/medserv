@@ -94,7 +94,7 @@ export const serviceRecords = pgTable("service_records", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const serviceRequests = pgTable("service_requests", {
+/* export const serviceRequests = pgTable("service_requests", {
   id: text("id").primaryKey(),
   deviceId: text("device_id")
     .references(() => devices.id, { onDelete: "cascade" })
@@ -115,6 +115,54 @@ export const serviceRequests = pgTable("service_requests", {
   startedAt: timestamp("started_at"),
   finishedAt: timestamp("finished_at"),
   delayReason: text("delay_reason"),
+}); */
+export const serviceRequests = pgTable("service_requests", {
+  id: text("id").primaryKey(),
+  deviceId: text("device_id")
+    .references(() => devices.id, { onDelete: "cascade" })
+    .notNull(),
+  requestedBy: text("requested_by")
+    .references(() => user.id, { onDelete: "cascade" })
+    .notNull(),
+  type: varchar("type", { length: 20 })
+    .notNull()
+    .$type<"redovni" | "vanredni" | "major">()
+    .default("redovni"),
+  description: text("description"),
+  preferredDate: date("preferred_date"),
+  status: varchar("status", { length: 32 })
+    .notNull()
+    .$type<"scheduled" | "in_progress" | "delayed" | "done" | "cancelled">()
+    .default("scheduled"),
+  createdAt: timestamp("created_at").defaultNow(),
+  assignedTo: text("assigned_to").references(() => user.id), // technician
+  scheduledAt: timestamp("scheduled_at"), // datum kada je planirano
+  startedAt: timestamp("started_at"),
+  finishedAt: timestamp("finished_at"),
+  delayReason: text("delay_reason"),
+});
+
+export const notifications = pgTable("notifications", {
+  id: text("id").primaryKey(),
+  userId: text("user_id")
+    .references(() => user.id, { onDelete: "cascade" })
+    .notNull(),
+  title: text("title").notNull(),
+  body: text("body"),
+  link: text("link"),
+  readAt: timestamp("read_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// optional: email queue (if you want to send via cron in batches)
+export const emailQueue = pgTable("email_queue", {
+  id: text("id").primaryKey(),
+  to: text("to").notNull(),
+  subject: text("subject").notNull(),
+  html: text("html").notNull(),
+  scheduledAt: timestamp("scheduled_at").defaultNow().notNull(),
+  sentAt: timestamp("sent_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 export const serviceRequestsRelations = relations(

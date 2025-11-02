@@ -13,6 +13,9 @@ import {
 } from "../../components/ui/sheet";
 import { Menu } from "lucide-react";
 
+import MobileNav from "./MobileNav";
+import NotificationBell from "./NotificationBell";
+
 export default async function Navbar() {
   const session = await auth.api.getSession({ headers: await headers() });
   const isAuth = Boolean(session?.user);
@@ -32,7 +35,7 @@ export default async function Navbar() {
 
   const links = [
     { href: homeHref, label: "Home", show: true },
-    { href: "/devices", label: "Devices", show: true }, // klijent vidi samo svoje uređaje
+    { href: "/devices", label: "Devices", show: true },
     { href: "/admin/clients", label: "Clients", show: role === "admin" },
   ].filter((l) => l.show);
 
@@ -42,39 +45,16 @@ export default async function Navbar() {
         <div className="flex items-center gap-4">
           {/* Mobile */}
           <div className="md:hidden">
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="icon" aria-label="Open menu">
-                  <Menu className="h-4 w-4" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left">
-                <SheetHeader>
-                  <SheetTitle>MediServ</SheetTitle>
-                </SheetHeader>
-                <div className="mt-4 flex flex-col gap-2">
-                  {links.map((l) => (
-                    <Link
-                      key={l.href}
-                      href={l.href}
-                      className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                      {l.label}
-                    </Link>
-                  ))}
-                </div>
-                <Separator className="my-4" />
-                <ClientUserMenu
-                  isAuth={isAuth}
-                  role={role}
-                  name={session?.user.name ?? null}
-                  email={session?.user.email ?? null}
-                />
-              </SheetContent>
-            </Sheet>
+            <MobileNav
+              links={links}
+              isAuth={isAuth}
+              role={role}
+              name={session?.user.name ?? null}
+              email={session?.user.email ?? null}
+            />
           </div>
 
-          {/* Logo → vodi na dashboard/landing */}
+          {/* Logo */}
           <Link href={homeHref} className="font-semibold text-lg">
             MediServ
           </Link>
@@ -93,14 +73,15 @@ export default async function Navbar() {
           </div>
         </div>
 
-        {/* Desktop user menu */}
-        <div className="hidden md:flex">
+        {/* Desktop user menu + bell */}
+        <div className="hidden md:flex space-x-2">
           <ClientUserMenu
             isAuth={isAuth}
             role={role}
             name={session?.user.name ?? null}
             email={session?.user.email ?? null}
           />
+          <NotificationBell />
         </div>
       </nav>
     </header>

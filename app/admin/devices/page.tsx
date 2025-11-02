@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import DeviceDialog from "@/components/admin/DeviceDialog";
+import Link from "next/link";
 
 export default async function DevicesPage() {
   // liste za select
@@ -109,6 +110,13 @@ export default async function DevicesPage() {
                           </Button>
                         }
                       />
+                      <Button asChild variant="secondary" size="sm">
+                        <Link
+                          href={`/admin/requests/new?clientId=${r.clientId}&deviceId=${r.id}`}
+                        >
+                          Create request
+                        </Link>
+                      </Button>
                     </div>
                   </td>
                 </tr>

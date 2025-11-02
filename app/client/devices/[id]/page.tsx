@@ -14,13 +14,17 @@ import { DeviceDetails } from "@/components/devices/DeviceDetails";
 import { auth } from "@/lib/auth";
 import ClientRequestForm from "@/components/devices/ClientRequestForm";
 
-export default async function Page({ params }: { params: { id: string } }) {
+export default async function Page({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session || session.user.role !== "client") redirect("/unauthorized");
-
+  const id = (await params).id;
   // provjera da user pripada klijentu ovog uređaja
   const d = await db.query.devices.findFirst({
-    where: eq(devices.id, params.id),
+    where: eq(devices.id, id),
     columns: { clientId: true, name: true },
   });
   if (!d) redirect("/client/devices");
@@ -45,7 +49,7 @@ export default async function Page({ params }: { params: { id: string } }) {
     })
     .from(devices)
     .innerJoin(clients, eq(devices.clientId, clients.id))
-    .where(eq(devices.id, params.id))
+    .where(eq(devices.id, id))
     .limit(1);
 
   if (dev.length === 0) redirect("/client/devices");
@@ -60,7 +64,7 @@ export default async function Page({ params }: { params: { id: string } }) {
     })
     .from(serviceRecords)
     .leftJoin(user, eq(serviceRecords.technicianId, user.id))
-    .where(eq(serviceRecords.deviceId, params.id))
+    .where(eq(serviceRecords.deviceId, id))
     .orderBy(desc(serviceRecords.serviceDate));
 
   const requests = await db
@@ -73,14 +77,14 @@ export default async function Page({ params }: { params: { id: string } }) {
       createdAt: serviceRequests.createdAt,
     })
     .from(serviceRequests)
-    .where(eq(serviceRequests.deviceId, params.id));
+    .where(eq(serviceRequests.deviceId, id));
 
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">{dev[0].name}</h1>
       <DeviceDetails device={dev[0]} records={records} canEdit={false} />
       {/* klijent može poslati zahtjev */}
-      <ClientRequestForm deviceId={params.id} />
+      <ClientRequestForm deviceId={id} />
 
       {/* lista zahtjeva */}
       <div className="card p-4">

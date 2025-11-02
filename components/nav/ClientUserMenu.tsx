@@ -18,23 +18,45 @@ type Props = {
   role?: "admin" | "technician" | "client";
   name?: string | null;
   email?: string | null;
+  onNavigate?: () => void; // 👈 NEW
 };
 
-export default function ClientUserMenu({ isAuth, role, name, email }: Props) {
+export default function ClientUserMenu({
+  isAuth,
+  role,
+  name,
+  email,
+  onNavigate,
+}: Props) {
   const router = useRouter();
+  const close = () => onNavigate?.();
 
   if (!isAuth) {
     return (
       <div className="flex items-center gap-2">
-        <Button variant="outline" onClick={() => router.push("/login")}>
+        <Button
+          variant="outline"
+          onClick={() => {
+            close();
+            router.push("/login");
+          }}
+        >
           Sign in
         </Button>
-        <Button onClick={() => router.push("/register")}>Register</Button>
+        <Button
+          onClick={() => {
+            close();
+            router.push("/register");
+          }}
+        >
+          Register
+        </Button>
       </div>
     );
   }
 
   const gotoDashboard = () => {
+    close();
     if (role === "admin") router.push("/admin/dashboard");
     else if (role === "technician") router.push("/technician/dashboard");
     else router.push("/client/dashboard");
@@ -42,6 +64,7 @@ export default function ClientUserMenu({ isAuth, role, name, email }: Props) {
 
   const signOut = async () => {
     await authClient.signOut();
+    close();
     router.refresh();
   };
 
@@ -77,7 +100,12 @@ export default function ClientUserMenu({ isAuth, role, name, email }: Props) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={gotoDashboard}>Dashboard</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push("/profile")}>
+        <DropdownMenuItem
+          onClick={() => {
+            close();
+            router.push("/profile");
+          }}
+        >
           Profile
         </DropdownMenuItem>
         <DropdownMenuSeparator />

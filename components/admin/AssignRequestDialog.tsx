@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { assignRequest } from "@/app/admin/requests/actions";
+import SchedulerCard from "../scheduler/SchedulerCard";
 
 const Schema = z.object({
   requestId: z.string(),
@@ -63,7 +64,7 @@ export default function AssignRequestDialog({
         <DialogHeader>
           <DialogTitle>Assign request</DialogTitle>
         </DialogHeader>
-        <form className="space-y-3" onSubmit={form.handleSubmit(onSubmit)}>
+        {/*   <form className="space-y-3" onSubmit={form.handleSubmit(onSubmit)}>
           <input type="hidden" {...form.register("requestId")} />
           <div>
             <Select
@@ -108,7 +109,18 @@ export default function AssignRequestDialog({
               Assign
             </Button>
           </DialogFooter>
-        </form>
+        </form> */}
+        <SchedulerCard
+          requestId={requestId}
+          technicians={technicians /* map to {id, name, workload?} */}
+          defaultTechId={technicians[0]?.id}
+          defaultDate={defaultDate ? `${defaultDate}T09:00` : undefined}
+          onScheduled={({ conflicts }) => {
+            // optional toast UI; for now a console
+            if (conflicts > 0)
+              console.info(`Scheduled with ${conflicts} possible conflicts`);
+          }}
+        />
       </DialogContent>
     </Dialog>
   );

@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, LayoutGrid, Wrench } from "lucide-react";
+import { LogOut, LayoutGrid, Wrench, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { authClient } from "@/lib/auth-client";
@@ -51,6 +51,11 @@ export default function ClientShell({
             icon={LayoutGrid}
           />
           <NavItem href="/client/devices" label="Devices" icon={Wrench} />
+          <NavItem
+            href="/client/requests"
+            label="Requests"
+            icon={ClipboardList}
+          />
         </nav>
         <div className="mt-auto p-2">
           <Button

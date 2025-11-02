@@ -12,11 +12,15 @@ import { ClientDevicesFilter } from "@/components/client/ClientDevicesFilter";
 export default async function ClientDevicesPage({
   searchParams,
 }: {
-  searchParams: { q?: string; upcoming?: "1" | "" };
+  searchParams: Promise<{
+    q?: string;
+    upcoming?: "1" | "";
+    clientId?: string;
+  }>;
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session || session.user.role !== "client") redirect("/unauthorized");
-
+  const sp = await searchParams;
   // pronađi client_id za ovog usera (pretpostavljamo da je član jedne bolnice)
   const membership = await db.query.clientMembers.findFirst({
     where: eq(clientMembers.userId, session.user.id),
@@ -36,8 +40,8 @@ export default async function ClientDevicesPage({
     );
   }
 
-  const q = (searchParams.q ?? "").trim();
-  const isUpcoming = searchParams.upcoming === "1";
+  const q = (sp.q ?? "").trim();
+  const isUpcoming = sp.upcoming === "1";
 
   // vremenski prozor za "upcoming": danas .. +30 dana
   const now = new Date();

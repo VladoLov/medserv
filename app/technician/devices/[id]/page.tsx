@@ -20,12 +20,13 @@ export default async function TechnicianDevicePage({
   params,
   searchParams,
 }: {
-  params: { id: string };
-  searchParams: { requestId?: string; from?: string };
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ requestId?: string; from?: string }>;
 }) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session || session.user.role !== "technician") redirect("/unauthorized");
-
+  const paramsId = (await params).id;
+  const sp = await searchParams;
   const dev = await db
     .select({
       id: devices.id,
@@ -40,10 +41,10 @@ export default async function TechnicianDevicePage({
     })
     .from(devices)
     .innerJoin(clients, eq(devices.clientId, clients.id))
-    .where(eq(devices.id, params.id))
+    .where(eq(devices.id, paramsId))
     .limit(1);
 
-  if (dev.length === 0) redirect(searchParams.from || "/technician/requests");
+  if (dev.length === 0) redirect(sp.from || "/technician/requests");
 
   const records = await db
     .select({
@@ -55,7 +56,7 @@ export default async function TechnicianDevicePage({
     })
     .from(serviceRecords)
     .leftJoin(users, eq(serviceRecords.technicianId, users.id))
-    .where(eq(serviceRecords.deviceId, params.id))
+    .where(eq(serviceRecords.deviceId, paramsId))
     .orderBy(desc(serviceRecords.serviceDate));
 
   // Ako smo došli sa liste i imamo requestId, povuci trenutni request
@@ -65,7 +66,7 @@ export default async function TechnicianDevicePage({
     type: string;
     scheduledAt: Date | null;
   } | null = null;
-  if (searchParams.requestId) {
+  if (sp.requestId) {
     const r = await db
       .select({
         id: serviceRequests.id,
@@ -74,7 +75,7 @@ export default async function TechnicianDevicePage({
         scheduledAt: serviceRequests.scheduledAt,
       })
       .from(serviceRequests)
-      .where(eq(serviceRequests.id, searchParams.requestId))
+      .where(eq(serviceRequests.id, sp.requestId))
       .limit(1);
     req = r[0] ?? null;
   }
@@ -82,8 +83,8 @@ export default async function TechnicianDevicePage({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3">
-        {searchParams.from && (
-          <Link href={searchParams.from}>
+        {sp.from && (
+          <Link href={sp.from}>
             <Button variant="outline">Back</Button>
           </Link>
         )}
@@ -96,9 +97,7 @@ export default async function TechnicianDevicePage({
           requestId={req.id}
           currentStatus={req.status}
           defaultType={req.type as any}
-          redirectTo={
-            searchParams.from || "/technician/requests?status=in_progress"
-          }
+          redirectTo={sp.from || "/technician/requests?status=in_progress"}
           defaultDate={
             req.scheduledAt
               ? new Date(req.scheduledAt).toISOString().slice(0, 10)

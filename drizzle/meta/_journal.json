@@ -36,6 +36,34 @@
       "when": 1760082744641,
       "tag": "0004_eager_donald_blake",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1760369419589,
+      "tag": "0005_chief_talos",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1760370415690,
+      "tag": "0006_tan_vapor",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1760370546577,
+      "tag": "0007_shiny_morbius",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1760692696385,
+      "tag": "0008_cloudy_midnight",
+      "breakpoints": true
     }
   ]
 }
