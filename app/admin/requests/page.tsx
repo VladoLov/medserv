@@ -3,27 +3,89 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/db";
 import { serviceRequests, devices, clients, user } from "@/db/schemas/schema";
-import { eq, desc, asc } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/ui/select";
-import Link from "next/link";
-import { updateRequestStatus } from "./actions";
-import ConvertRequestDialog from "@/components/admin/ConvertRequestDialog";
 import AssignRequestDialog from "@/components/admin/AssignRequestDialog";
+import ConvertRequestDialog from "@/components/admin/ConvertRequestDialog";
+import { updateRequestStatus } from "./actions";
+import PaginationBar from "@/components/admin/PaginationBar";
 
-export default async function AdminRequestsPage() {
+// ---- helpers ----
+const STATUSES = ["scheduled", "done", "cancelled"] as const;
+type Segment = (typeof STATUSES)[number];
+
+const statusVariant = (
+  s: string
+): "default" | "secondary" | "destructive" | "outline" => {
+  switch (s) {
+    case "scheduled":
+      return "secondary";
+    case "done":
+      return "outline";
+    case "cancelled":
+      return "destructive";
+    default:
+      return "default";
+  }
+};
+
+export const revalidate = 0;
+
+export default async function AdminRequestsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    status?: Segment;
+    page?: string;
+    pageSize?: string;
+  }>;
+}) {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session || !["admin", "technician"].includes(session.user.role))
+  if (!session || !["admin", "technician"].includes(session.user.role)) {
     redirect("/unauthorized");
+  }
 
+  // ---- read query params safely in RSC ----
+  const sp = await searchParams;
+  const status: Segment =
+    sp.status && STATUSES.includes(sp.status) ? sp.status : "scheduled";
+  const page = Math.max(1, Number(sp.page ?? "1") || 1);
+  const pageSize = Math.min(
+    100,
+    Math.max(5, Number(sp.pageSize ?? "10") || 10)
+  );
+  const offset = (page - 1) * pageSize;
+
+  // ---- counts per segment (for the tabs) ----
+  // Using 3 small COUNT(*) queries keeps SQL simple & indexed.
+  const [scheduledCount] = await db
+    .select({ c: sql<number>`count(*)` })
+    .from(serviceRequests)
+    .where(eq(serviceRequests.status, "scheduled"));
+
+  const [doneCount] = await db
+    .select({ c: sql<number>`count(*)` })
+    .from(serviceRequests)
+    .where(eq(serviceRequests.status, "done"));
+
+  const [cancelledCount] = await db
+    .select({ c: sql<number>`count(*)` })
+    .from(serviceRequests)
+    .where(eq(serviceRequests.status, "cancelled"));
+
+  const totalMap: Record<Segment, number> = {
+    scheduled: Number(scheduledCount?.c ?? 0),
+    done: Number(doneCount?.c ?? 0),
+    cancelled: Number(cancelledCount?.c ?? 0),
+  };
+
+  const total = totalMap[status];
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+
+  // ---- main page query (filtered by segment, paginated) ----
   const rows = await db
     .select({
       id: serviceRequests.id,
@@ -41,29 +103,26 @@ export default async function AdminRequestsPage() {
     .innerJoin(devices, eq(serviceRequests.deviceId, devices.id))
     .innerJoin(clients, eq(devices.clientId, clients.id))
     .innerJoin(user, eq(serviceRequests.requestedBy, user.id))
-    .orderBy(desc(serviceRequests.createdAt));
+    .where(and(eq(serviceRequests.status, status)))
+    .orderBy(desc(serviceRequests.createdAt))
+    .limit(pageSize)
+    .offset(offset);
 
-  const statusBadge = (s: string) => {
-    const map: Record<
-      string,
-      "default" | "secondary" | "destructive" | "outline"
-    > = {
-      open: "default",
-      scheduled: "secondary",
-      done: "outline",
-      cancelled: "destructive",
-    };
-    return (
-      <Badge variant={map[s] ?? "default"} className="capitalize">
-        {s}
-      </Badge>
-    );
-  };
+  // technicians for Assign dialog
   const techs = await db
     .select({ id: user.id, name: user.name })
     .from(user)
     .where(eq(user.role, "technician"))
-    .orderBy(asc(user.name));
+    .orderBy(user.name);
+
+  // ---- UI helpers ----
+  const tabLink = (seg: Segment) => {
+    const params = new URLSearchParams();
+    params.set("status", seg);
+    params.set("page", "1");
+    params.set("pageSize", String(pageSize));
+    return `/admin/requests?${params.toString()}`;
+  };
 
   return (
     <div className="space-y-4">
@@ -71,9 +130,40 @@ export default async function AdminRequestsPage() {
         <h1 className="text-xl font-semibold">Service Requests</h1>
       </div>
 
+      {/* Segmented Tabs (links so it stays RSC-friendly) */}
+      <Card className="p-2">
+        <div className="flex gap-2">
+          {STATUSES.map((seg) => {
+            const active = seg === status;
+            const count =
+              seg === "scheduled"
+                ? totalMap.scheduled
+                : seg === "done"
+                ? totalMap.done
+                : totalMap.cancelled;
+            return (
+              <Link
+                key={seg}
+                href={tabLink(seg)}
+                className={`px-3 py-1 rounded-md text-sm border ${
+                  active
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "hover:bg-muted"
+                }`}
+              >
+                {seg.charAt(0).toUpperCase() + seg.slice(1)} ({count})
+              </Link>
+            );
+          })}
+        </div>
+      </Card>
+
       <Card className="p-0 overflow-hidden">
-        <div className="px-4 py-3 border-b">
-          <p className="text-sm text-muted-foreground">{rows.length} total</p>
+        <div className="px-4 py-3 border-b flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">
+            {rows.length} of {total} {status}
+          </p>
+          <PageSizeSelect current={pageSize} status={status} />
         </div>
 
         <div className="overflow-x-auto">
@@ -119,10 +209,17 @@ export default async function AdminRequestsPage() {
                       : "—"}
                   </td>
                   <td className="px-4 py-2">{r.requesterName ?? "—"}</td>
-                  <td className="px-4 py-2">{statusBadge(r.status)}</td>
+                  <td className="px-4 py-2">
+                    <Badge
+                      variant={statusVariant(r.status)}
+                      className="capitalize"
+                    >
+                      {r.status}
+                    </Badge>
+                  </td>
                   <td className="px-4 py-2">
                     <div className="flex flex-wrap gap-2">
-                      {/* Promjena statusa */}
+                      {/* Update status */}
                       <form
                         action={async (formData) => {
                           "use server";
@@ -133,34 +230,34 @@ export default async function AdminRequestsPage() {
                         }}
                       >
                         <input type="hidden" name="id" value={r.id} />
-                        <Select name="status" defaultValue={r.status}>
-                          <SelectTrigger className="w-36">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="open">Open</SelectItem>
-                            <SelectItem value="scheduled">Scheduled</SelectItem>
-                            <SelectItem value="done">Done</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <select
+                          name="status"
+                          defaultValue={r.status}
+                          className="border rounded px-2 py-1 text-sm"
+                        >
+                          <option value="scheduled">Scheduled</option>
+                          <option value="done">Done</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
                         <Button
                           type="submit"
                           variant="outline"
                           size="sm"
-                          className="mt-2 w-36"
+                          className="mt-2"
                         >
-                          Update status
+                          Update
                         </Button>
                       </form>
 
-                      {/* Convert → Service Record */}
+                      {/* Convert → Record */}
                       <ConvertRequestDialog
                         requestId={r.id}
                         deviceId={r.deviceId}
                         defaultType={r.type as "redovni" | "vanredni" | "major"}
                         trigger={<Button size="sm">Convert to record</Button>}
                       />
+
+                      {/* Assign tech & date (visible mainly for scheduled) */}
                       <AssignRequestDialog
                         requestId={r.id}
                         technicians={techs}
@@ -187,14 +284,46 @@ export default async function AdminRequestsPage() {
                     colSpan={8}
                     className="px-4 py-10 text-center text-muted-foreground"
                   >
-                    No requests yet.
+                    No {status} requests.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+
+        <div className="px-4 py-3 border-t">
+          <PaginationBar
+            totalPages={totalPages}
+            page={page}
+            pageSize={pageSize}
+            status={status}
+          />
+        </div>
       </Card>
     </div>
+  );
+}
+
+// ------- Client components for pagination & page size -------
+
+function PageSizeSelect({
+  current,
+  status,
+}: {
+  current: number;
+  status: Segment;
+}) {
+  return (
+    <form
+      className="flex items-center gap-2"
+      action={async (formData) => {
+        "use server";
+        await updateRequestStatus(r.id, formData.get("status") as any);
+      }}
+    >
+      <span className="text-xs text-muted-foreground">Page size:</span>
+      <span className="text-xs">{current}</span>
+    </form>
   );
 }
